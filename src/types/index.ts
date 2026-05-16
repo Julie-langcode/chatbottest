@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 export type Role = "user" | "assistant";
 
 export interface ChatMessage {
@@ -15,12 +17,21 @@ export type ModeId =
 
 export interface PracticeMode {
   id: ModeId;
-  title: string;
+  label: string;
   subtitle: string;
-  description: string;
+  desc: string;
+  accent: string;
+  icon: LucideIcon;
 }
 
 export interface VocabularyEntry {
   term: string;
-  definition: string;
+  def: string;
 }
+
+export interface SessionData {
+  mode: ModeId;
+  messages: ChatMessage[];
+}
+
+export type Screen = "welcome" | "chat" | "feedback";

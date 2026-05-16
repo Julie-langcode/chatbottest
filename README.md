@@ -7,7 +7,8 @@ Target audience: founders, executives, and senior managers (30+) with A2–B2 En
 ## Tech stack
 
 - **Frontend:** React 18 + TypeScript + Vite
-- **Styling:** Tailwind CSS
+- **Styling:** Tailwind base + CSS variables for the theme (warm dark palette, gold accent), Fraunces display + Inter + JetBrains Mono
+- **Icons:** lucide-react
 - **AI:** Anthropic Claude API (`claude-sonnet-4-20250514`) via `/v1/messages` with streaming
 - **State:** React hooks (no Redux)
 - **Backend:** none — the browser calls Anthropic directly using `anthropic-dangerous-direct-browser-access`
@@ -63,17 +64,17 @@ For production, route the request through a thin server proxy and keep the key o
 ```
 src/
 ├── components/
-│   ├── Chat.tsx          # Main chat shell (header, messages, input)
-│   ├── MessageBubble.tsx # Formatted bubble + vocab tooltips
-│   ├── ModeSelector.tsx  # Practice mode cards
-│   ├── ProgressBar.tsx   # 5-dot progress
-│   └── FeedbackCard.tsx  # End-of-session summary
+│   ├── WelcomeScreen.tsx    # Hero + mode grid
+│   ├── ChatScreen.tsx       # Chat shell with streaming + progress dots
+│   ├── FeedbackScreen.tsx   # End-of-session feedback + vocab chips
+│   └── messageRenderer.tsx  # Markdown-lite + vocab highlighting
 ├── hooks/
-│   └── useClaudeChat.ts  # Streaming + retry logic
+│   └── useClaudeChat.ts     # Streaming + retry logic
 ├── data/
-│   └── curriculum.ts     # Vocab, modes, prompts, openers
+│   └── curriculum.ts        # Vocab, modes, prompts, openers
 ├── types/index.ts
-├── App.tsx
+├── index.css                # Theme tokens, animations, grain
+├── App.tsx                  # 3-screen router
 └── main.tsx
 ```
 
