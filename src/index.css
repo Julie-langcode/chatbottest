@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  background-color: #0f1b2d;
+  color: #f5f7fb;
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar */
+.scroll-y::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-y::-webkit-scrollbar-thumb {
+  background: rgba(108, 92, 231, 0.4);
+  border-radius: 999px;
+}
+.scroll-y::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Vocab term highlight */
+.vocab-term {
+  border-bottom: 1px dotted rgba(108, 92, 231, 0.7);
+  cursor: help;
+  position: relative;
+}
+
+.vocab-term:hover .vocab-tooltip,
+.vocab-term:focus .vocab-tooltip {
+  opacity: 1;
+  transform: translate(-50%, -4px);
+  pointer-events: auto;
+}
+
+.vocab-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  background: #1b3055;
+  color: #f5f7fb;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  white-space: normal;
+  min-width: 180px;
+  max-width: 240px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+
+/* Hide scrollbar on horizontal mode list (mobile) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
