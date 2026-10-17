@@ -1,74 +1,130 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChatMessage, ModeId } from "../types";
-import { OPENERS, SYSTEM_PROMPTS } from "../data/curriculum";
+import { OPENERS } from "../data/curriculum";
+import { buildSystemPrompt } from "../protocol/rules";
+import { buildCheckerInput, buildCheckerSystem, parseCheckerOutput } from "../protocol/checker";
 
+// The model and the limits are fixed on the server (server/anthropic.ts).
 const API_URL = "/api/chat";
-const MODEL = "claude-sonnet-4-20250514";
-const MAX_TOKENS = 1000;
 const MAX_RETRIES = 2;
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function now() {
+  return new Date().toISOString();
+}
+
 export interface UseClaudeChatOptions {
   mode: ModeId;
+  /** Hallucination-management protocol on (levels 1–2) or off (baseline). */
+  protocolEnabled: boolean;
 }
 
 export interface UseClaudeChatResult {
   messages: ChatMessage[];
   send: (text: string) => Promise<void>;
   isStreaming: boolean;
+  /** True while a verification call (level 2) is still running for some reply. */
+  isChecking: boolean;
   error: string | null;
   turns: number;
+  /** Model that served the last reply, as reported by the server. */
+  model: string | null;
   retry: () => void;
   reset: () => void;
 }
 
-export function useClaudeChat({ mode }: UseClaudeChatOptions): UseClaudeChatResult {
+interface ApiReply {
+  text: string;
+  model: string | null;
+}
+
+async function callApi(
+  purpose: "chat" | "check",
+  system: string,
+  messages: { role: "user" | "assistant"; content: string }[]
+): Promise<ApiReply> {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ purpose, system, messages })
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`API error ${res.status}: ${txt.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = Array.isArray(data.content)
+    ? data.content
+        .map((b: { text?: string }) => (typeof b.text === "string" ? b.text : ""))
+        .join("")
+    : "";
+
+  if (!text) {
+    throw new Error("Empty response from API");
+  }
+  return { text, model: typeof data.served_model === "string" ? data.served_model : null };
+}
+
+export function useClaudeChat({ mode, protocolEnabled }: UseClaudeChatOptions): UseClaudeChatResult {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: uid(), role: "assistant", content: OPENERS[mode] }
+    { id: uid(), role: "assistant", content: OPENERS[mode], ts: now() }
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [pendingChecks, setPendingChecks] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<string | null>(null);
   const lastUserMessageRef = useRef<string | null>(null);
 
   const turns = messages.filter((m) => m.role === "user").length;
 
-  const runRequest = useCallback(
-    async (history: ChatMessage[]) => {
-      const payload = {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPTS[mode],
-        messages: history.map((m) => ({ role: m.role, content: m.content }))
-      };
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`API error ${res.status}: ${txt.slice(0, 200)}`);
+  // Level 2: verify one coach reply. Runs in the background; never blocks the dialogue.
+  const runCheck = useCallback(
+    async (replyId: string, learnerText: string, replyText: string) => {
+      setPendingChecks((n) => n + 1);
+      let result;
+      try {
+        const { text } = await callApi("check", buildCheckerSystem(), [
+          { role: "user", content: buildCheckerInput(mode, learnerText, replyText) }
+        ]);
+        result = parseCheckerOutput(text);
+      } catch {
+        result = { status: "error" as const, issues: [], checkedAt: now() };
       }
-
-      const data = await res.json();
-      const text = Array.isArray(data.content)
-        ? data.content
-            .map((b: { text?: string }) => (typeof b.text === "string" ? b.text : ""))
-            .join("")
-        : "";
-
-      if (!text) {
-        throw new Error("Empty response from API");
-      }
-
-      setMessages((prev) => [...prev, { id: uid(), role: "assistant", content: text }]);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === replyId ? { ...m, check: result, checkPending: false } : m))
+      );
+      setPendingChecks((n) => n - 1);
     },
     [mode]
+  );
+
+  const runRequest = useCallback(
+    async (history: ChatMessage[]) => {
+      const { text, model: servedModel } = await callApi(
+        "chat",
+        buildSystemPrompt(mode, protocolEnabled),
+        history.map((m) => ({ role: m.role, content: m.content }))
+      );
+      if (servedModel) setModel(servedModel);
+
+      const replyId = uid();
+      setMessages((prev) => [
+        ...prev,
+        { id: replyId, role: "assistant", content: text, ts: now(), checkPending: protocolEnabled }
+      ]);
+
+      if (protocolEnabled) {
+        const learnerText =
+          [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+        void runCheck(replyId, learnerText, text);
+      }
+    },
+    [mode, protocolEnabled, runCheck]
   );
 
   const sendInternal = useCallback(
@@ -108,7 +164,7 @@ export function useClaudeChat({ mode }: UseClaudeChatOptions): UseClaudeChatResu
 
       const next: ChatMessage[] = [
         ...messages,
-        { id: uid(), role: "user", content: trimmed }
+        { id: uid(), role: "user", content: trimmed, ts: now() }
       ];
       setMessages(next);
       await sendInternal(next);
@@ -124,10 +180,20 @@ export function useClaudeChat({ mode }: UseClaudeChatOptions): UseClaudeChatResu
   }, [messages, isStreaming, sendInternal]);
 
   const reset = useCallback(() => {
-    setMessages([{ id: uid(), role: "assistant", content: OPENERS[mode] }]);
+    setMessages([{ id: uid(), role: "assistant", content: OPENERS[mode], ts: now() }]);
     setError(null);
     setIsStreaming(false);
   }, [mode]);
 
-  return { messages, send, isStreaming, error, turns, retry, reset };
+  return {
+    messages,
+    send,
+    isStreaming,
+    isChecking: pendingChecks > 0,
+    error,
+    turns,
+    model,
+    retry,
+    reset
+  };
 }
