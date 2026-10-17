@@ -4,7 +4,7 @@ import { OPENERS } from "../data/curriculum";
 import { buildSystemPrompt } from "../protocol/rules";
 import { buildCheckerInput, buildCheckerSystem, parseCheckerOutput } from "../protocol/checker";
 
-// The model and the limits are fixed on the server (server/anthropic.ts).
+// The model and the limits are fixed on the server (api/chat.ts).
 const API_URL = "/api/chat";
 const MAX_RETRIES = 2;
 

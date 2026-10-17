@@ -11,7 +11,7 @@ Target audience: founders, executives, and senior managers (30+) with B1–B2 En
 - **Icons:** lucide-react
 - **AI:** Anthropic Claude API (`claude-sonnet-4-20250514` by default, `ANTHROPIC_MODEL` to override) via `/v1/messages`
 - **State:** React hooks (no Redux)
-- **Backend:** a thin server route `/api/chat` (`api/chat.ts` on Vercel, the same handler in the Vite dev server). It holds the API key and fixes the model and token limits; the browser never sees the key.
+- **Backend:** a thin server route `/api/chat` (`api/chat.ts` on Vercel; the Vite dev server reuses its handler). It holds the API key and fixes the model and token limits; the browser never sees the key.
 
 ## Features
 
@@ -54,7 +54,7 @@ npm run preview
 
 ## Security notes
 
-- The API key stays on the server (`api/chat.ts`, `server/anthropic.ts`); it is never in the bundle.
+- The API key stays on the server (`api/chat.ts`); it is never in the bundle.
 - The server fixes the model, `max_tokens` and temperature and validates the request, so the
   route cannot be used to call other models or to run long generations.
 - The route has no authentication or rate limit yet. Before sharing the URL widely, add one
@@ -85,8 +85,7 @@ columns. Nothing is sent to any server.
 ## Project layout
 
 ```
-api/chat.ts                  # Vercel function → server/anthropic.ts
-server/anthropic.ts          # Shared handler: key, model, limits, validation
+api/chat.ts                  # Vercel function + shared handler (key, model, limits, validation)
 research/pilot/              # Pilot scenarios, annotation guide, analyze.py
 src/
 ├── components/

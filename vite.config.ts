@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { DEFAULT_MODEL, handleChatRequest } from "./server/anthropic";
+import { DEFAULT_MODEL, handleChatRequest } from "./api/chat";
 
 // Serves POST /api/chat during `npm run dev`, the same way the Vercel function does in
 // production, so the bot (and the research pilot) can run locally with the key in .env.
