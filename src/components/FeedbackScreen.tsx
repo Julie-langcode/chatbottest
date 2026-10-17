@@ -1,6 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { MODES, VOCABULARY } from "../data/curriculum";
 import type { SessionData } from "../types";
+import { AiCheckReflection } from "./AiCheckReflection";
 import { renderMessage } from "./messageRenderer";
 
 interface Props {
@@ -64,6 +65,8 @@ export function FeedbackScreen({ session, onRestart, onNewMode }: Props) {
           {renderMessage(lastBotMessage)}
         </div>
       </div>
+
+      <AiCheckReflection session={session} />
 
       {usedVocab.length > 0 && (
         <div className="pb-card" style={{ padding: 24, borderRadius: 14, marginBottom: 32 }}>

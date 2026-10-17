@@ -1,12 +1,15 @@
 import { ChevronRight, Sparkles } from "lucide-react";
 import { MODES } from "../data/curriculum";
 import type { ModeId } from "../types";
+import { ResearchPanel } from "./ResearchPanel";
 
 interface Props {
   onSelectMode: (id: ModeId) => void;
+  protocolEnabled: boolean;
+  onProtocolChange: (enabled: boolean) => void;
 }
 
-export function WelcomeScreen({ onSelectMode }: Props) {
+export function WelcomeScreen({ onSelectMode, protocolEnabled, onProtocolChange }: Props) {
   return (
     <div
       className="pb-fade-in"
@@ -170,6 +173,8 @@ export function WelcomeScreen({ onSelectMode }: Props) {
           );
         })}
       </div>
+
+      <ResearchPanel protocolEnabled={protocolEnabled} onProtocolChange={onProtocolChange} />
 
       {/* Footer */}
       <div

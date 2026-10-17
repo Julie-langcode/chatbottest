@@ -251,3 +251,18 @@ body {
   background: var(--border-hi);
   border-radius: 3px;
 }
+
+/* Accuracy protocol: spinner for the verification call */
+@keyframes pb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pb-spin {
+  animation: pb-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb-spin {
+    animation: none;
+  }
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChatScreen } from "./components/ChatScreen";
 import { FeedbackScreen } from "./components/FeedbackScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { getProtocolEnabled, setProtocolEnabled } from "./protocol/config";
 import type { ModeId, Screen, SessionData } from "./types";
 
 export default function App() {
@@ -9,6 +10,7 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState<ModeId | null>(null);
   const [session, setSession] = useState<SessionData | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
+  const [protocolEnabled, setProtocolState] = useState<boolean>(() => getProtocolEnabled());
 
   return (
     <div className="pb-root">
@@ -16,6 +18,11 @@ export default function App() {
       <div style={{ position: "relative", zIndex: 2 }}>
         {screen === "welcome" && (
           <WelcomeScreen
+            protocolEnabled={protocolEnabled}
+            onProtocolChange={(enabled) => {
+              setProtocolEnabled(enabled);
+              setProtocolState(enabled);
+            }}
             onSelectMode={(id) => {
               setSelectedMode(id);
               setScreen("chat");
@@ -27,6 +34,7 @@ export default function App() {
           <ChatScreen
             key={sessionKey}
             mode={selectedMode}
+            protocolEnabled={protocolEnabled}
             onBack={() => setScreen("welcome")}
             onComplete={(s) => {
               setSession(s);

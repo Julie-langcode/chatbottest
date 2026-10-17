@@ -1,27 +1,59 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, Send } from "lucide-react";
 import { MAX_TURNS, MODES } from "../data/curriculum";
 import { useClaudeChat } from "../hooks/useClaudeChat";
-import type { ModeId, SessionData } from "../types";
+import { PROTOCOL_VERSION } from "../protocol/config";
+import { newId, startSession, updateSession } from "../research/sessionLog";
+import type { ErrorType, LearnerFlag, ModeId, SessionData } from "../types";
+import { MessageAudit } from "./MessageAudit";
 import { renderMessage } from "./messageRenderer";
 
 interface Props {
   mode: ModeId;
+  protocolEnabled: boolean;
   onBack: () => void;
   onComplete: (session: SessionData) => void;
 }
 
-export function ChatScreen({ mode, onBack, onComplete }: Props) {
+export function ChatScreen({ mode, protocolEnabled, onBack, onComplete }: Props) {
   const modeData = useMemo(() => MODES.find((m) => m.id === mode)!, [mode]);
-  const { messages, send, isStreaming, error, retry } = useClaudeChat({ mode });
+  const { messages, send, isStreaming, isChecking, error, retry, model } = useClaudeChat({
+    mode,
+    protocolEnabled
+  });
   const [input, setInput] = useState("");
+  const [flags, setFlags] = useState<LearnerFlag[]>([]);
+  const [sessionId] = useState(() => newId());
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const completedRef = useRef(false);
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const progress = Math.min(userTurns, MAX_TURNS);
   const sessionDone = progress >= MAX_TURNS;
+
+  // Stage 0: log the session (this browser only) from its first message.
+  useEffect(() => {
+    startSession(sessionId, mode, protocolEnabled);
+  }, [sessionId, mode, protocolEnabled]);
+
+  useEffect(() => {
+    updateSession(sessionId, { messages, flags, model });
+  }, [sessionId, messages, flags, model]);
+
+  useEffect(() => {
+    return () => {
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+    };
+  }, []);
+
+  const handleFlag = useCallback((messageId: string, type: ErrorType, comment: string) => {
+    setFlags((prev) => [
+      ...prev.filter((f) => f.messageId !== messageId),
+      { messageId, type, comment, ts: new Date().toISOString() }
+    ]);
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -39,13 +71,20 @@ export function ChatScreen({ mode, onBack, onComplete }: Props) {
     }
   }, [input]);
 
+  // Finish only after the last reply AND its verification (level 2) have arrived, so the
+  // feedback screen and the log get the complete session.
+  const latestRef = useRef<SessionData | null>(null);
+  latestRef.current = { sessionId, mode, protocolEnabled, messages, flags };
+
   useEffect(() => {
-    if (sessionDone && !isStreaming && !completedRef.current) {
+    if (sessionDone && !isStreaming && !isChecking && !completedRef.current) {
       completedRef.current = true;
-      const t = setTimeout(() => onComplete({ mode, messages }), 1200);
-      return () => clearTimeout(t);
+      updateSession(sessionId, { completed: true });
+      completeTimerRef.current = setTimeout(() => {
+        if (latestRef.current) onComplete(latestRef.current);
+      }, 1200);
     }
-  }, [sessionDone, isStreaming, mode, messages, onComplete]);
+  }, [sessionDone, isStreaming, isChecking, sessionId, onComplete]);
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming || sessionDone) return;
@@ -144,7 +183,7 @@ export function ChatScreen({ mode, onBack, onComplete }: Props) {
           padding: "8px 0"
         }}
       >
-        {messages.map((msg) => (
+        {messages.map((msg, idx) => (
           <div
             key={msg.id}
             className="pb-fade-in"
@@ -180,6 +219,14 @@ export function ChatScreen({ mode, onBack, onComplete }: Props) {
                 </div>
               )}
               <div>{renderMessage(msg.content)}</div>
+              {msg.role === "assistant" && idx > 0 && (
+                <MessageAudit
+                  message={msg}
+                  protocolEnabled={protocolEnabled}
+                  flag={flags.find((f) => f.messageId === msg.id)}
+                  onFlag={(type, comment) => handleFlag(msg.id, type, comment)}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -315,8 +362,12 @@ export function ChatScreen({ mode, onBack, onComplete }: Props) {
           }}
         >
           {sessionDone
-            ? "Session complete"
+            ? isChecking
+              ? "Session complete · finishing the accuracy check…"
+              : "Session complete"
             : `Turn ${progress + 1} of ${MAX_TURNS} · Enter to send · Shift+Enter for new line`}
+          {" · "}
+          {protocolEnabled ? `Accuracy protocol on · v${PROTOCOL_VERSION}` : "Accuracy protocol off"}
         </div>
       </div>
     </div>
