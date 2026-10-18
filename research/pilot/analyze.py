@@ -22,8 +22,10 @@ def read_rows(path):
     with open(path, encoding="utf-8-sig", newline="") as f:
         sample = f.read(4096)
         f.seek(0)
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;")
-        return list(csv.DictReader(f, dialect=dialect))
+        # Sniff only the delimiter (Excel may re-save with ";"). Letting the sniffer guess the
+        # quoting breaks rows whose text contains doubled quotes ("") and silently drops data.
+        delimiter = csv.Sniffer().sniff(sample, delimiters=",;").delimiter
+        return list(csv.DictReader(f, delimiter=delimiter, quotechar='"', doublequote=True))
 
 
 def annotated(rows):
