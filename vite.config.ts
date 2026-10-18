@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { DEFAULT_MODEL, handleChatRequest } from "./api/chat";
+import { handleChatRequest } from "./api/chat";
 
 // Serves POST /api/chat during `npm run dev`, the same way the Vercel function does in
 // production, so the bot (and the research pilot) can run locally with the key in .env.
@@ -29,11 +29,7 @@ function devApi(env: Record<string, string>): Plugin {
             res.end(JSON.stringify({ error: "Invalid JSON" }));
             return;
           }
-          const result = await handleChatRequest(
-            body,
-            env.ANTHROPIC_API_KEY,
-            env.ANTHROPIC_MODEL || DEFAULT_MODEL
-          );
+          const result = await handleChatRequest(body, env);
           res.statusCode = result.status;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify(result.body));

@@ -9,7 +9,7 @@ Target audience: founders, executives, and senior managers (30+) with B1–B2 En
 - **Frontend:** React 18 + TypeScript + Vite
 - **Styling:** Tailwind base + CSS variables for the theme (warm dark palette, gold accent), Fraunces display + Inter + JetBrains Mono
 - **Icons:** lucide-react
-- **AI:** Anthropic Claude API (`claude-sonnet-4-20250514` by default, `ANTHROPIC_MODEL` to override) via `/v1/messages`
+- **AI:** Yandex AI Studio (Alice AI LLM by default; `YANDEX_MODEL` to change) or Anthropic Claude, chosen on the server (see `api/chat.ts`)
 - **State:** React hooks (no Redux)
 - **Backend:** a thin server route `/api/chat` (`api/chat.ts` on Vercel; the Vite dev server reuses its handler). It holds the API key and fixes the model and token limits; the browser never sees the key.
 
@@ -36,14 +36,15 @@ Target audience: founders, executives, and senior managers (30+) with B1–B2 En
 npm install
 
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY (server-side; no VITE_ prefix)
+# Edit .env: set YANDEX_API_KEY and YANDEX_FOLDER_ID (server-side; no VITE_ prefix)
 
 npm run dev
 ```
 
 The dev server runs at `http://localhost:5173` and serves `/api/chat` itself, so the bot works
-locally with the key from `.env`. On Vercel, set `ANTHROPIC_API_KEY` in the project's
-environment variables.
+locally with the key from `.env`. On Vercel, set `YANDEX_API_KEY` and `YANDEX_FOLDER_ID` in the
+project's environment variables (Production and Preview), then redeploy. The key needs the
+`ai.languageModels.user` role (or `ai.editor`) on the folder.
 
 ## Build
 
@@ -54,7 +55,7 @@ npm run preview
 
 ## Security notes
 
-- The API key stays on the server (`api/chat.ts`); it is never in the bundle.
+- The API keys stay on the server (`api/chat.ts`); it is never in the bundle.
 - The server fixes the model, `max_tokens` and temperature and validates the request, so the
   route cannot be used to call other models or to run long generations.
 - The route has no authentication or rate limit yet. Before sharing the URL widely, add one

@@ -198,7 +198,7 @@ export function WelcomeScreen({ onSelectMode, protocolEnabled, onProtocolChange 
             textTransform: "uppercase"
           }}
         >
-          Powered by Claude · For B1–B2 speakers
+          AI-powered practice · For B1–B2 speakers
         </div>
         <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
           ⌘ Yulia Balabanova · Methodology

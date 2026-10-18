@@ -5,7 +5,7 @@
 
 ## Что понадобится
 
-- Ключ Anthropic API в файле `.env` (см. `.env.example`): `ANTHROPIC_API_KEY=...`
+- Бот на Vercel с настроенными `YANDEX_API_KEY` и `YANDEX_FOLDER_ID` (или локально: те же переменные в файле `.env`, см. `.env.example`)
 - Node.js 18+; в папке проекта: `npm install`, затем `npm run dev`, открыть `http://localhost:5173`
 - Файл сценариев: [`scenarios.md`](scenarios.md)
 - Инструкция по разметке: [`annotation-guide.md`](annotation-guide.md)
