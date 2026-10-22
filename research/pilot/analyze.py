@@ -16,6 +16,7 @@ import sys
 from collections import Counter, defaultdict
 
 TYPES = ["factual", "linguistic", "pragmatic", "other"]
+CONTENT_TYPES = {"factual", "linguistic", "pragmatic"}
 
 
 def read_rows(path):
@@ -73,13 +74,18 @@ def summary(path):
             print(f"  {t:<11} {type_counts.get(t, 0)}")
 
         # Level 2 vs the human rater (only meaningful when the protocol was on).
+        # The checker only reviews content, so a "real error" here is a factual, linguistic or
+        # pragmatic one; script/format errors ("other") are out of its scope.
         checked = [r for r in group if r.get("checker_status") in ("ok", "warning")]
         if checked:
-            tp = sum(1 for r in checked if r["checker_status"] == "warning" and r["annot_error_yes_no"].lower() == "yes")
-            fp = sum(1 for r in checked if r["checker_status"] == "warning" and r["annot_error_yes_no"].lower() == "no")
-            fn = sum(1 for r in checked if r["checker_status"] == "ok" and r["annot_error_yes_no"].lower() == "yes")
-            tn = sum(1 for r in checked if r["checker_status"] == "ok" and r["annot_error_yes_no"].lower() == "no")
-            print("  checker vs rater (replies with a completed check):")
+            def content_err(r):
+                return r["annot_error_yes_no"].strip().lower() == "yes" and \
+                    any(t in CONTENT_TYPES for t in types_of(r))
+            tp = sum(1 for r in checked if r["checker_status"] == "warning" and content_err(r))
+            fp = sum(1 for r in checked if r["checker_status"] == "warning" and not content_err(r))
+            fn = sum(1 for r in checked if r["checker_status"] == "ok" and content_err(r))
+            tn = sum(1 for r in checked if r["checker_status"] == "ok" and not content_err(r))
+            print("  checker vs rater, content errors only (replies with a completed check):")
             print(f"    flagged & real error (TP): {tp}   flagged, no error (FP): {fp}")
             print(f"    missed real error (FN):    {fn}   correctly silent (TN): {tn}")
             print(f"    recall {pct(tp, tp + fn)}   precision {pct(tp, tp + fp)}")
@@ -133,8 +139,6 @@ def kappa(path1, path2):
               f"Cohen's kappa = {cohen_kappa(t1, t2):.2f}")
     print("\nRough guide: kappa < 0.4 weak, 0.4–0.6 moderate, 0.6–0.8 substantial, > 0.8 almost perfect.")
 
-
-CONTENT_TYPES = {"factual", "linguistic", "pragmatic"}
 
 
 def recheck(annotated_path, recheck_path):
