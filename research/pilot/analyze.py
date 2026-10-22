@@ -4,6 +4,7 @@
 Usage:
   python3 analyze.py summary annotated.csv
   python3 analyze.py kappa rater1.csv rater2.csv
+  python3 analyze.py recheck annotated.csv recheck.csv
 
 Input: the CSV exported from the bot ("CSV для разметки") with the annot_* columns filled in
 (see annotation-guide.md). Only assistant rows that have annot_error_yes_no filled are counted.
@@ -133,11 +134,52 @@ def kappa(path1, path2):
     print("\nRough guide: kappa < 0.4 weak, 0.4–0.6 moderate, 0.6–0.8 substantial, > 0.8 almost perfect.")
 
 
+CONTENT_TYPES = {"factual", "linguistic", "pragmatic"}
+
+
+def recheck(annotated_path, recheck_path):
+    """Level 2 applied after the fact to condition-A replies, against the human annotation.
+
+    The checker only looks at content (factual / linguistic / pragmatic), so the main score
+    counts a reply as a real error only when the rater gave it one of those types; script and
+    format errors ("other") are reported separately as out of the checker's scope.
+    """
+    ann = {(r["session_id"], r["turn"]): r for r in annotated(read_rows(annotated_path))}
+    chk = {(r["session_id"], r["turn"]): r for r in read_rows(recheck_path)
+           if r.get("recheck_status") in ("ok", "warning")}
+    common = [k for k in ann if k in chk]
+    if not common:
+        print("No replies found in both files (join on session_id + turn).")
+        return
+    tp, fp, fn, tn = [], [], [], []
+    for k in common:
+        content_err = any(t in CONTENT_TYPES for t in types_of(ann[k])) and \
+            ann[k]["annot_error_yes_no"].strip().lower() == "yes"
+        flagged = chk[k]["recheck_status"] == "warning"
+        (tp if flagged and content_err else fp if flagged else fn if content_err else tn).append(k)
+    print(f"Replies re-checked and annotated: {len(common)} (failed checks skipped: {len(ann) - len(common)})")
+    print(f"Content errors (factual/linguistic/pragmatic) caught: {len(tp)} of {len(tp) + len(fn)}"
+          f"  -> recall {pct(len(tp), len(tp) + len(fn))}")
+    print(f"Warnings raised: {len(tp) + len(fp)}, of them on replies without a content error: {len(fp)}"
+          f"  -> precision {pct(len(tp), len(tp) + len(fp))}")
+    print(f"Correctly silent: {len(tn)}")
+    for label, group in (("Caught", tp), ("Missed", fn), ("False alarm", fp)):
+        for k in group:
+            a, c = ann[k], chk[k]
+            print(f"\n[{label}] {a.get('pilot_scenario') or a['session_id']} turn {k[1]} ({a.get('mode')})")
+            if a["annot_error_yes_no"].strip().lower() == "yes":
+                print(f"  rater:   {a.get('annot_error_type')}: {a.get('annot_quote')}")
+            if c.get("recheck_issues"):
+                print(f"  checker: {c['recheck_issues']}")
+
+
 def main(argv):
     if len(argv) >= 3 and argv[1] == "summary":
         summary(argv[2])
     elif len(argv) >= 4 and argv[1] == "kappa":
         kappa(argv[2], argv[3])
+    elif len(argv) >= 4 and argv[1] == "recheck":
+        recheck(argv[2], argv[3])
     else:
         print(__doc__)
         return 1
