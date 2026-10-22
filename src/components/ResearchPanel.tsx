@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Download, FlaskConical, Trash2 } from "lucide-react";
+import { Download, FlaskConical, ShieldCheck, Trash2 } from "lucide-react";
+import { exportRecheckCsv, recheckStatus, runRecheck } from "../research/recheck";
 import { PROMPT_VERSION, PROTOCOL_VERSION } from "../protocol/config";
 import { clearSessions, exportCsv, exportJson, listSessions } from "../research/sessionLog";
 
@@ -17,6 +18,8 @@ const small: React.CSSProperties = { fontSize: 13, lineHeight: 1.5 };
 export function ResearchPanel({ protocolEnabled, onProtocolChange }: Props) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(() => listSessions().length);
+  const [recheck, setRecheck] = useState(() => recheckStatus());
+  const [rechecking, setRechecking] = useState(false);
 
   return (
     <div className="pb-card" style={{ marginTop: 40, padding: 20, borderRadius: 12 }}>
@@ -24,6 +27,7 @@ export function ResearchPanel({ protocolEnabled, onProtocolChange }: Props) {
         type="button"
         onClick={() => {
           setCount(listSessions().length);
+          setRecheck(recheckStatus());
           setOpen((o) => !o);
         }}
         style={{
@@ -60,6 +64,42 @@ export function ResearchPanel({ protocolEnabled, onProtocolChange }: Props) {
           <div style={{ ...small, color: "var(--text-dim)" }}>
             Выключи протокол, чтобы записать базовые сессии для сравнения. Действует на новые
             сессии. Можно также открыть ссылку с ?protocol=off.
+          </div>
+
+          <div style={{ ...small, borderTop: "1px solid var(--border, #333)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ color: "var(--text-muted)" }}>
+              Пилот, этап 2: проверочный вызов (уровень 2) по ответам, записанным без протокола.
+              Сами сессии не меняются. {recheck.total > 0
+                ? `Проверено ${recheck.done} из ${recheck.total}.`
+                : "Нет завершённых сессий без протокола."}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <button
+                type="button"
+                className="pb-btn-ghost"
+                disabled={rechecking || recheck.total === 0}
+                onClick={async () => {
+                  setRechecking(true);
+                  try {
+                    await runRecheck((done, total) => setRecheck({ done, total }));
+                  } finally {
+                    setRechecking(false);
+                  }
+                }}
+                style={{ ...small, padding: "8px 14px", borderRadius: 8, cursor: rechecking ? "wait" : "pointer", display: "flex", gap: 6, alignItems: "center" }}
+              >
+                <ShieldCheck size={14} /> {rechecking ? "Идёт проверка… не закрывай вкладку" : "Перепроверить журнал"}
+              </button>
+              <button
+                type="button"
+                className="pb-btn-ghost"
+                disabled={rechecking || recheck.done === 0}
+                onClick={exportRecheckCsv}
+                style={{ ...small, padding: "8px 14px", borderRadius: 8, cursor: "pointer", display: "flex", gap: 6, alignItems: "center" }}
+              >
+                <Download size={14} /> CSV перепроверки
+              </button>
+            </div>
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
